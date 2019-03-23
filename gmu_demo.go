@@ -170,13 +170,43 @@ func get_current_git_user() string {
 	cfg, err := ini.Load(git_config)
 	if err != nil {
 		fmt.Printf("Fail to read file: %v", err)
-		return "";
+		return ""
 	}
 
 	var name string = cfg.Section("user").Key("name").String()
 	// var email string = cfg.Section("user").Key("email").String()
 
 	return name
+}
+
+func update_ini_config(home string) bool {
+	ini_config := home + "\\" + GMU_DEMO_RC;
+	fmt.Println("ini_confi:", ini_config)
+	if !utils.FileExist(ini_config) {
+		fmt.Println("create new", ini_config)
+		file, err := os.Create(ini_config)
+		if err != nil {
+			fmt.Println("os.Create failed:", err)
+			return false
+		}
+		defer file.Close()
+	}
+
+	cfg, err := ini.Load(ini_config)
+	if err != nil {
+		fmt.Printf("Fail to read file: %v", err)
+		return false
+	}
+
+	sec := cfg.Section("current")
+	if !sec.HasKey("name") {
+		fmt.Println("has no name key")
+		sec.NewKey("name", "value");
+	} else {
+		fmt.Println("has name key")
+	}
+
+	return true;
 }
 
 func save_git_config(home, user string) bool {
@@ -277,6 +307,8 @@ func init_env() bool {
 		fmt.Println("save .ssh failed.")
 		return false
 	}
+
+	update_ini_config(USERPROFILE)
 
 	return true;
 }
