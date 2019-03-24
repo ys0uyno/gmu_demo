@@ -22,6 +22,7 @@ var restoreFlag2 *bool = flag.Bool("r2", false,
 	"Restore user's git configuration.")
 var initFlag *bool = flag.Bool("init", false, "Initialization")
 var updateFlag *bool = flag.Bool("update", false, "Update")
+var usersFlag *bool = flag.Bool("users", false, "Users")
 
 func get_git_config_info() bool {
 	fmt.Println("get_git_config_info()")
@@ -364,6 +365,35 @@ func update_env() bool {
 	return init_env()
 }
 
+func users() bool {
+	var home string = os.Getenv(`USERPROFILE`)
+
+	ini_config := home + "\\" + GMU_DEMO_RC;
+	if !utils.FileExist(ini_config) {
+		return false
+	}
+
+	cfg, err := ini.Load(ini_config)
+	if err != nil {
+		fmt.Printf("Fail to read file: %v", err)
+		return false
+	}
+
+	curr_user := cfg.Section("current").Key("name").String()
+	users := cfg.Section("users").Key("name").String()
+
+	user_arr := strings.Fields(users)
+	for _, ele := range user_arr {
+		if ele == curr_user {
+			fmt.Println("*", ele)
+		} else {
+			fmt.Println(" ", ele)
+		}
+	}
+
+	return true
+}
+
 func main() {
 	flag.Parse()
 
@@ -389,6 +419,8 @@ func main() {
 	} else if *updateFlag {
 		fmt.Println("Update...")
 		update_env()
+	} else if *usersFlag {
+		users()
 	} else {
 		fmt.Println("Print usage.")
 	}
