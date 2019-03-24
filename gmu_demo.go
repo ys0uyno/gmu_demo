@@ -5,12 +5,13 @@ import (
 	"os"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"gopkg.in/ini.v1"
 	"./utils"
 )
 
 const VERSION = "0.0.1"
-const GMU_DEMO_RC = ".gmu_demorc"
+const GMU_DEMO_RC = ".gmu_democonfig"
 
 var versionFlag *bool = flag.Bool("v", false, "Print the version number.")
 var infoFlag *bool = flag.Bool("info", false,
@@ -179,6 +180,17 @@ func get_current_git_user() string {
 	return name
 }
 
+func contains(arr []string, str string) bool {
+	fmt.Println("arr len:", len(arr))
+	for _, ele := range arr {
+		if ele == str {
+			return true
+		}
+	}
+
+	return false
+}
+
 func update_ini_config(home string) bool {
 	ini_config := home + "\\" + GMU_DEMO_RC;
 	fmt.Println("ini_confi:", ini_config)
@@ -198,15 +210,50 @@ func update_ini_config(home string) bool {
 		return false
 	}
 
-	sec := cfg.Section("current")
-	if !sec.HasKey("name") {
+	// handle [current]
+	curr_sec := cfg.Section("current")
+	if !curr_sec.HasKey("name") {
 		fmt.Println("has no name key")
-		sec.NewKey("name", "value");
+		curr_sec.NewKey("name", "");
 	} else {
 		fmt.Println("has name key")
 	}
 
-	return true;
+	// update current git user
+	var user string = get_current_git_user()
+	curr_sec.Key("name").SetValue(user)
+
+	// handle [users]
+	users_sec := cfg.Section("users")
+	if !users_sec.HasKey("name") {
+		users_sec.NewKey("name", user)
+	}
+
+	var users string = users_sec.Key("name").String()
+	if !strings.Contains(users, user) {
+		// new git user
+		users = users + " " + user
+		users_sec.Key("name").SetValue(users)
+	}
+
+	// handle [%git user%]
+	new_user_sec := cfg.Section(user)
+
+	var gitconfig string = home
+	gitconfig = gitconfig + "\\.gitconfig." + user
+	if utils.FileExist(gitconfig) {
+		new_user_sec.NewKey("gitconfig", gitconfig)
+	}
+
+	var sshconfig string = home
+	sshconfig = sshconfig + "\\.ssh." + user
+	if utils.FileExist(sshconfig) {
+		new_user_sec.NewKey("sshconfig", sshconfig)
+	}
+
+	cfg.SaveTo(ini_config)
+
+	return true
 }
 
 func save_git_config(home, user string) bool {
