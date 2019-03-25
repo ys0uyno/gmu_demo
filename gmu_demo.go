@@ -6,84 +6,78 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"log"
 	"gopkg.in/ini.v1"
 	"./utils"
 )
 
 const VERSION = "0.0.1"
-const GMU_DEMO_RC = ".gmu_democonfig"
+const GMU_DEMO_CONFIG = ".gmu_democonfig"
+const GITCONFIG = ".gitconfig"
+const SSHCONFIG = ".ssh"
+const SEC_NAME_CUR = "current"
+const KEY_NAME_GIT = "gitconfig"
+const KEY_NAME_SSH = "sshconfig"
+const KEY_NAME_USER = "user"
+const KEY_NAME_NAME = "name"
+const KEY_NAME_EMAIL = "email"
+const KEY_NAME_USERS = "users"
 
-var versionFlag *bool = flag.Bool("v", false, "Print the version number.")
-var infoFlag *bool = flag.Bool("i", false,
-	"Get current git configuration information.")
-var updateFlag *bool = flag.Bool("u", false, "Update")
-var usersFlag *bool = flag.Bool("l", false, "Users")
-var checkoutFlag string
+var flag_ver *bool
+var flag_cur *bool
+var flag_upd *bool
+var flag_all *bool
+var flag_chk string
 
 func get_git_config_info() bool {
-	var USERPROFILE string = os.Getenv(`USERPROFILE`)
+	USERPROFILE := os.Getenv(`USERPROFILE`)
 
-	var git_config_file string = USERPROFILE
-	git_config_file += "\\.gitconfig"
+	gitconfig := USERPROFILE + "\\" + GITCONFIG
 
-	if !utils.FileExist(git_config_file) {
-		return false;
+	if !utils.FileExist(gitconfig) {
+		log.Printf("No %s found.\n", GITCONFIG)
+		return false
 	}
 
-	cfg, err := ini.Load(git_config_file)
+	cfg, err := ini.Load(gitconfig)
 	if err != nil {
-		return false;
+		log.Println(err)
+		return false
 	}
 
-	var name string = cfg.Section("user").Key("name").String()
-	var email string = cfg.Section("user").Key("email").String()
+	name := cfg.Section(KEY_NAME_USER).Key(KEY_NAME_NAME).String()
+	email := cfg.Section(KEY_NAME_USER).Key(KEY_NAME_EMAIL).String()
 
-	fmt.Printf("User: %s <%s>\n", name, email)
+	fmt.Printf("Current user: %s <%s>\n", name, email)
 
-	return true;
+	return true
 }
 
 func get_current_git_user() string {
-	var USERPROFILE string = os.Getenv(`USERPROFILE`)
+	USERPROFILE := os.Getenv(`USERPROFILE`)
 
-	var git_config string = USERPROFILE
-	git_config += "\\.gitconfig"
+	gitconfig := USERPROFILE + "\\" + GITCONFIG
 
-	if !utils.FileExist(git_config) {
-		fmt.Printf("\"%s\" does not exist\n", git_config)
-		return "";
-	}
-
-	cfg, err := ini.Load(git_config)
-	if err != nil {
-		fmt.Printf("Fail to read file: %v", err)
+	if !utils.FileExist(gitconfig) {
+		log.Printf("No %s found.\n", GITCONFIG)
 		return ""
 	}
 
-	var name string = cfg.Section("user").Key("name").String()
-	// var email string = cfg.Section("user").Key("email").String()
-
-	return name
-}
-
-func contains(arr []string, str string) bool {
-	fmt.Println("arr len:", len(arr))
-	for _, ele := range arr {
-		if ele == str {
-			return true
-		}
+	cfg, err := ini.Load(gitconfig)
+	if err != nil {
+		log.Println(err)
+		return ""
 	}
 
-	return false
+	return cfg.Section(KEY_NAME_USER).Key(KEY_NAME_NAME).String()
 }
 
 func update_ini_config(home string) bool {
-	ini_config := home + "\\" + GMU_DEMO_RC;
+	ini_config := home + "\\" + GMU_DEMO_CONFIG;
 	if !utils.FileExist(ini_config) {
-		fmt.Println("create new", ini_config)
 		file, err := os.Create(ini_config)
 		if err != nil {
-			fmt.Println("os.Create failed:", err)
+			log.Println(err)
 			return false
 		}
 		defer file.Close()
@@ -91,54 +85,52 @@ func update_ini_config(home string) bool {
 
 	cfg, err := ini.Load(ini_config)
 	if err != nil {
-		fmt.Printf("Fail to read file: %v", err)
+		log.Println(err)
 		return false
 	}
 
 	// handle [current]
-	curr_sec := cfg.Section("current")
-	if !curr_sec.HasKey("name") {
-		curr_sec.NewKey("name", "");
+	curr_sec := cfg.Section(SEC_NAME_CUR)
+	if !curr_sec.HasKey(KEY_NAME_NAME) {
+		curr_sec.NewKey(KEY_NAME_NAME, "");
 	}
 
-	if !curr_sec.HasKey("gitconfig") {
-		curr_sec.NewKey("gitconfig", home + "\\.gitconfig");
+	if !curr_sec.HasKey(KEY_NAME_GIT) {
+		curr_sec.NewKey(KEY_NAME_GIT, home + "\\" + GITCONFIG)
 	}
 
-	if !curr_sec.HasKey("sshconfig") {
-		curr_sec.NewKey("sshconfig", home + "\\.ssh")
+	if !curr_sec.HasKey(KEY_NAME_SSH) {
+		curr_sec.NewKey(KEY_NAME_SSH, home + "\\" + SSHCONFIG)
 	}
 
 	// update current git user
-	var user string = get_current_git_user()
-	curr_sec.Key("name").SetValue(user)
+	user := get_current_git_user()
+	curr_sec.Key(KEY_NAME_NAME).SetValue(user)
 
 	// handle [users]
-	users_sec := cfg.Section("users")
-	if !users_sec.HasKey("name") {
-		users_sec.NewKey("name", user)
+	users_sec := cfg.Section(KEY_NAME_USERS)
+	if !users_sec.HasKey(KEY_NAME_NAME) {
+		users_sec.NewKey(KEY_NAME_NAME, user)
 	}
 
-	var users string = users_sec.Key("name").String()
+	users := users_sec.Key(KEY_NAME_NAME).String()
 	if !strings.Contains(users, user) {
 		// new git user
 		users = users + " " + user
-		users_sec.Key("name").SetValue(users)
+		users_sec.Key(KEY_NAME_NAME).SetValue(users)
 	}
 
 	// handle [%git user%]
 	new_user_sec := cfg.Section(user)
 
-	var gitconfig string = home
-	gitconfig = gitconfig + "\\.gitconfig." + user
+	gitconfig := home + "\\" + GITCONFIG + "." + user
 	if utils.FileExist(gitconfig) {
-		new_user_sec.NewKey("gitconfig", gitconfig)
+		new_user_sec.NewKey(KEY_NAME_GIT, gitconfig)
 	}
 
-	var sshconfig string = home
-	sshconfig = sshconfig + "\\.ssh." + user
+	sshconfig := home + "\\" + SSHCONFIG + "." + user
 	if utils.FileExist(sshconfig) {
-		new_user_sec.NewKey("sshconfig", sshconfig)
+		new_user_sec.NewKey(KEY_NAME_SSH, sshconfig)
 	}
 
 	cfg.SaveTo(ini_config)
@@ -148,13 +140,13 @@ func update_ini_config(home string) bool {
 
 func save_git_config(home, user string) bool {
 	current_git_user := get_current_git_user()
-	old_config_file := home + "\\.gitconfig"
+	old_config_file := home + "\\" + GITCONFIG
 	new_config_file := old_config_file + "." + user
 
 	// if current user is equal to 'user' and .gitconfig.user exists,
 	// no need save again
 	if current_git_user == user && utils.FileExist(new_config_file) {
-		return true;
+		return true
 	}
 
 	// save .gitconfig as .gitconfig.user_name
@@ -168,32 +160,30 @@ func save_git_config(home, user string) bool {
 
 func save_ssh_config(home, user string) bool {
 	current_git_user := get_current_git_user()
-	old_config_file := home + "\\.ssh"
+	old_config_file := home + "\\" + SSHCONFIG
 	new_config_file := old_config_file + "." + user
 
 	// if current user is equal to 'user' and .ssh.user exists,
 	// no need save again
 	if current_git_user == user && utils.FileExist(new_config_file) {
-		return true;
+		return true
 	}
 
 	err := os.MkdirAll(new_config_file, os.ModePerm)
 	if err != nil {
-		fmt.Println("os.MkdirAll failed")
+		log.Println(err)
 		return false
 	}
 
 	files, err := ioutil.ReadDir(old_config_file)
 	if err != nil {
-		fmt.Println("ReadDir failed")
+		log.Println(err)
 		return false
 	}
 
 	for _, f := range files {
 		var f_old string = old_config_file + "\\" + f.Name()
 		var f_new string = new_config_file + "\\" + f.Name()
-		fmt.Println(f_old)
-		fmt.Println(f_new)
 		utils.CopyFile(f_new, f_old)
 	}
 
@@ -201,31 +191,28 @@ func save_ssh_config(home, user string) bool {
 }
 
 func init_env() bool {
-	var USERPROFILE string = os.Getenv(`USERPROFILE`)
+	USERPROFILE := os.Getenv(`USERPROFILE`)
 
-	var git_config_file string = USERPROFILE
-	git_config_file += "\\.gitconfig"
+	gitconfig := USERPROFILE + "\\" + GITCONFIG
 
-	if !utils.FileExist(git_config_file) {
-		fmt.Printf("\"%s\" does not exist\n", git_config_file)
-		return false;
+	if !utils.FileExist(gitconfig) {
+		log.Printf("No %s found.\n", GITCONFIG)
+		return false
 	}
 
-	var ssh_dir string = USERPROFILE
-	ssh_dir += "\\.ssh"
-
-	if !utils.FileExist(ssh_dir) {
-		fmt.Printf("\"%s\" does not exist\n", ssh_dir)
-		return false;
+	sshconfig := USERPROFILE + "\\" + SSHCONFIG
+	if !utils.FileExist(sshconfig) {
+		log.Printf("No %s found.\n", SSHCONFIG)
+		return false
 	}
 
-	cfg, err := ini.Load(git_config_file)
+	cfg, err := ini.Load(gitconfig)
 	if err != nil {
-		fmt.Printf("Fail to read file: %v\n", err)
-		return false;
+		log.Println(err)
+		return false
 	}
 
-	var name string = cfg.Section("user").Key("name").String()
+	name := cfg.Section(KEY_NAME_USER).Key(KEY_NAME_NAME).String()
 
 	if !save_git_config(USERPROFILE, name) {
 		return false
@@ -237,7 +224,7 @@ func init_env() bool {
 
 	update_ini_config(USERPROFILE)
 
-	return true;
+	return true
 }
 
 func update_env() bool {
@@ -245,21 +232,22 @@ func update_env() bool {
 }
 
 func list_user() bool {
-	var home string = os.Getenv(`USERPROFILE`)
+	home := os.Getenv(`USERPROFILE`)
 
-	ini_config := home + "\\" + GMU_DEMO_RC;
+	ini_config := home + "\\" + GMU_DEMO_CONFIG;
 	if !utils.FileExist(ini_config) {
+		log.Printf("No %s found.\n", GMU_DEMO_CONFIG)
 		return false
 	}
 
 	cfg, err := ini.Load(ini_config)
 	if err != nil {
-		fmt.Printf("Fail to read file: %v", err)
+		log.Println(err)
 		return false
 	}
 
-	curr_user := cfg.Section("current").Key("name").String()
-	users := cfg.Section("users").Key("name").String()
+	curr_user := cfg.Section(SEC_NAME_CUR).Key(KEY_NAME_NAME).String()
+	users := cfg.Section(KEY_NAME_USERS).Key(KEY_NAME_NAME).String()
 
 	user_arr := strings.Fields(users)
 	for _, ele := range user_arr {
@@ -274,49 +262,56 @@ func list_user() bool {
 }
 
 func checkout_user(user string) bool {
-	var home string = os.Getenv(`USERPROFILE`)
+	home := os.Getenv(`USERPROFILE`)
 
-	ini_config := home + "\\" + GMU_DEMO_RC;
+	ini_config := home + "\\" + GMU_DEMO_CONFIG;
 	if !utils.FileExist(ini_config) {
+		log.Printf("No %s found.\n", GMU_DEMO_CONFIG)
 		return false
 	}
 
 	cfg, err := ini.Load(ini_config)
 	if err != nil {
+		log.Println(err)
 		return false
 	}
 
-	curr_user := cfg.Section("current").Key("name").String()
+	curr_user := cfg.Section(SEC_NAME_CUR).Key(KEY_NAME_NAME).String()
 	if curr_user == user {
-		fmt.Printf("%s is already the current user\n", user)
+		fmt.Printf("%s is already the current user.\n", user)
 		return true
 	}
 
-	users := cfg.Section("users").Key("name").String()
+	users := cfg.Section(KEY_NAME_USERS).Key(KEY_NAME_NAME).String()
 	if !strings.Contains(users, user) {
-		fmt.Printf("%s does not exist, can't checkout", user)
+		fmt.Printf("%s does not exist, can't checkout.", user)
 		return false
 	}
 
-	var user_gitconfig = cfg.Section(user).Key("gitconfig").String()
+	user_gitconfig := cfg.Section(user).Key(KEY_NAME_GIT).String()
 	if !utils.FileExist(user_gitconfig) {
-		fmt.Printf("not find %s's .gitconfig", user)
+		log.Printf("not find %s's %s", user, GITCONFIG)
 		return false
 	}
 
-	var curr_gitconfig = cfg.Section("current").Key("gitconfig").String()
+	curr_gitconfig := cfg.Section(SEC_NAME_CUR).Key(KEY_NAME_GIT).String()
 	ret, _ := utils.CopyFile(curr_gitconfig, user_gitconfig)
 	if ret == 0 {
-		fmt.Println("checkout .gitconfig failed")
+		log.Printf("checkout %s failed\n", GITCONFIG)
 		return false
 	}
 
-	var user_sshconfig = cfg.Section(user).Key("sshconfig").String()
-	var curr_sshconfig = cfg.Section("current").Key("sshconfig").String()
+	user_sshconfig := cfg.Section(user).Key(KEY_NAME_SSH).String()
+	if !utils.FileExist(user_sshconfig) {
+		log.Printf("not find %s's %s", user, SSHCONFIG)
+		return false
+	}
+
+	curr_sshconfig := cfg.Section(SEC_NAME_CUR).Key(KEY_NAME_SSH).String()
 
 	files, err := ioutil.ReadDir(curr_sshconfig)
 	if err != nil {
-		fmt.Println("ReadDir failed")
+		log.Println(err)
 		return false
 	}
 
@@ -326,7 +321,7 @@ func checkout_user(user string) bool {
 
 		ret, _ = utils.CopyFile(f_new, f_old)
 		if ret == 0 {
-			fmt.Println("checkout .ssh failed")
+			log.Printf("checkout %s failed", SSHCONFIG)
 			return false
 		}
 	}
@@ -337,24 +332,32 @@ func checkout_user(user string) bool {
 	return true
 }
 
-func main() {
-	flag.StringVar(&checkoutFlag, "c", "", "Set `user` as the current user")
-	flag.Parse()
+func init() {
+	log.SetPrefix("[gmu_demo] ")
+	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
+
+	flag_ver = flag.Bool("v", false, "Print the version number.")
+	flag_cur = flag.Bool("i", false, "Show current git user <email>.")
+	flag_upd = flag.Bool("u", false, "Update gmu_demo.")
+	flag_all = flag.Bool("a", false, "Print all git users.")
+	flag.StringVar(&flag_chk, "c", "", "Set `user` as the current user.")
 
 	init_env()
+}
 
-	if *versionFlag {
-		fmt.Println("version:", VERSION)
-	} else if *infoFlag {
+func main() {
+	flag.Parse()
+
+	if *flag_ver {
+		fmt.Println("Version:", VERSION)
+	} else if *flag_cur {
 		get_git_config_info()
-	} else if *updateFlag {
-		fmt.Println("Update...")
+	} else if *flag_upd {
 		update_env()
-	} else if *usersFlag {
+	} else if *flag_all {
 		list_user()
-	} else if checkoutFlag != "" {
-		fmt.Println("Checkout...")
-		checkout_user(checkoutFlag)
+	} else if flag_chk != "" {
+		checkout_user(flag_chk)
 	} else {
 		fmt.Println("Try 'gmu_demo -h' for more options.")
 	}

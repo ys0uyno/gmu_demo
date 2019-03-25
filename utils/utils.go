@@ -49,3 +49,13 @@ func CopyFile(dst, src string) (int64, error) {
 	nBytes, err := io.Copy(destination, source)
 	return nBytes, err
 }
+
+func Contains(arr []string, str string) bool {
+	for _, ele := range arr {
+		if ele == str {
+			return true
+		}
+	}
+
+	return false
+}
