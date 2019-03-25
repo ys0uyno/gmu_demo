@@ -8,7 +8,7 @@ import (
 	"strings"
 	"log"
 	"gopkg.in/ini.v1"
-	"./utils"
+	"github.com/ys0uyno/gmu_demo/utils"
 )
 
 const VERSION = "0.0.1"
@@ -16,12 +16,12 @@ const GMU_DEMO_CONFIG = ".gmu_democonfig"
 const GITCONFIG = ".gitconfig"
 const SSHCONFIG = ".ssh"
 const SEC_NAME_CUR = "current"
+const SEC_NAME_USERS = "users"
 const KEY_NAME_GIT = "gitconfig"
 const KEY_NAME_SSH = "sshconfig"
 const KEY_NAME_USER = "user"
 const KEY_NAME_NAME = "name"
 const KEY_NAME_EMAIL = "email"
-const KEY_NAME_USERS = "users"
 
 var flag_ver *bool
 var flag_cur *bool
@@ -108,7 +108,7 @@ func update_ini_config(home string) bool {
 	curr_sec.Key(KEY_NAME_NAME).SetValue(user)
 
 	// handle [users]
-	users_sec := cfg.Section(KEY_NAME_USERS)
+	users_sec := cfg.Section(SEC_NAME_USERS)
 	if !users_sec.HasKey(KEY_NAME_NAME) {
 		users_sec.NewKey(KEY_NAME_NAME, user)
 	}
@@ -182,8 +182,8 @@ func save_ssh_config(home, user string) bool {
 	}
 
 	for _, f := range files {
-		var f_old string = old_config_file + "\\" + f.Name()
-		var f_new string = new_config_file + "\\" + f.Name()
+		f_old := old_config_file + "\\" + f.Name()
+		f_new := new_config_file + "\\" + f.Name()
 		utils.CopyFile(f_new, f_old)
 	}
 
@@ -247,7 +247,7 @@ func list_user() bool {
 	}
 
 	curr_user := cfg.Section(SEC_NAME_CUR).Key(KEY_NAME_NAME).String()
-	users := cfg.Section(KEY_NAME_USERS).Key(KEY_NAME_NAME).String()
+	users := cfg.Section(SEC_NAME_USERS).Key(KEY_NAME_NAME).String()
 
 	user_arr := strings.Fields(users)
 	for _, ele := range user_arr {
@@ -282,7 +282,7 @@ func checkout_user(user string) bool {
 		return true
 	}
 
-	users := cfg.Section(KEY_NAME_USERS).Key(KEY_NAME_NAME).String()
+	users := cfg.Section(SEC_NAME_USERS).Key(KEY_NAME_NAME).String()
 	if !strings.Contains(users, user) {
 		fmt.Printf("%s does not exist, can't checkout.", user)
 		return false
@@ -316,8 +316,8 @@ func checkout_user(user string) bool {
 	}
 
 	for _, f := range files {
-		var f_old string = user_sshconfig + "\\" + f.Name()
-		var f_new string = curr_sshconfig + "\\" + f.Name()
+		f_old := user_sshconfig + "\\" + f.Name()
+		f_new := curr_sshconfig + "\\" + f.Name()
 
 		ret, _ = utils.CopyFile(f_new, f_old)
 		if ret == 0 {
